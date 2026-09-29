@@ -219,3 +219,38 @@ th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0
 
 /* 新闻里的"对币市 / 对 AI 方向 / 下一步看什么" */
 .news p > strong:first-child { color: var(--ink); font-weight: 600; }
+
+/* 页脚导航 */
+.site-foot { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 22px; font-size: 14px; color: var(--muted); }
+.site-foot a { text-decoration: none; }
+.site-foot a:hover { color: var(--ink); }
+
+/* 系列页 */
+.page-intro { font-family: var(--serif); font-size: 18px; line-height: 1.8; margin: 0 0 8px; }
+.course { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--ink); }
+.course-name { font-family: var(--serif); font-size: 24px; font-weight: 700; line-height: 1.4; margin: 0 0 4px; }
+.course-meta { font-size: 13px; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 12px; }
+.course-intro p, .course-intro li { color: var(--ink-2); font-size: 16px; line-height: 1.8; }
+.course-intro p { margin: 0 0 10px; }
+.course-intro ul { padding-left: 1.2em; margin: 0 0 10px; }
+.course-list { list-style: none; padding: 0; margin: 4px 0 10px; }
+.course-list li { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 15.5px; line-height: 1.6; }
+.course-list .n { flex: 0 0 auto; min-width: 1.6em; color: var(--muted); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.course-list .t { flex: 1 1 auto; }
+.course-list .d { flex: 0 0 auto; color: var(--muted); font-size: 13px; }
+.course-list li.done .t a { font-weight: 600; }
+.course-list li.next .t { font-weight: 600; }
+.course-next { font-size: 15px; margin: 12px 0 6px; }
+.course-unit { font-size: 12px; font-weight: 600; letter-spacing: 0.16em; color: var(--muted); margin: 18px 0 2px; }
+.course-outline { margin-top: 6px; }
+.course-outline summary { cursor: pointer; font-size: 14px; color: var(--muted); padding: 8px 0; }
+.course-outline summary:hover { color: var(--ink); }
+
+/* 更新日志页 */
+.changelog > p:first-child { font-family: var(--serif); font-size: 18px; line-height: 1.8; }
+.changelog h2 { font-size: 17px; font-weight: 650; line-height: 1.5; margin: 40px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+.changelog p, .changelog li { color: var(--ink-2); }
+.changelog p { margin: 0 0 12px; }
+.changelog ul { padding-left: 1.2em; margin: 0 0 14px; }
+.changelog li { margin: 0 0 6px; }
+.changelog strong { color: var(--ink); font-weight: 600; }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把 content/*.md 构建成 site/ 下的静态网页。
+"""把 content/*.md 构建成 site/ 下的静态网页，另外生成更新日志页和系列页。
 
 用法：python3 build.py
 依赖：pip install markdown
@@ -19,6 +19,17 @@ ROOT = Path(__file__).resolve().parent
 CONTENT = ROOT / "content"
 STATIC = ROOT / "static"
 SITE = ROOT / "site"
+CHANGELOG = ROOT / "更新日志.md"
+SERIES_DIR = ROOT / "series"
+# 系列页的顺序和播出日；文件名对应 series/ 里的大纲文件
+SERIES_ORDER = [
+    ("西方艺术史.md", "每周一"),
+    ("交易与投资.md", "每周二、周六"),
+    ("摄影.md", "每周三"),
+    ("AI工具与方法.md", "每周四"),
+    ("音乐史与古典音乐.md", "每周五；周日聆听"),
+]
+FOOT_LINKS = [("/", "今天"), ("/archive.html", "往期"), ("/series.html", "系列"), ("/changelog.html", "更新日志")]
 
 WEEKDAYS = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 TYPE_LABEL = {
@@ -150,6 +161,20 @@ def masthead(link_home: bool) -> str:
     return f'<header class="masthead"><h1 class="name">{name}</h1></header>\n'
 
 
+def site_foot(skip=()) -> str:
+    links = "".join(f'<a href="{href}">{label}</a>' for href, label in FOOT_LINKS if href not in skip)
+    return f'<nav class="site-foot">{links}</nav>\n'
+
+
+def md_html(text: str) -> str:
+    body = markdown.markdown(cn_quotes(text), extensions=["extra", "sane_lists"], output_format="html")
+    return re.sub(r'<a href="(https?://[^"]+)"', r'<a href="\1" target="_blank" rel="noopener"', body)
+
+
+def short_date(d: str) -> str:
+    return f"{int(d[5:7])}月{int(d[8:])}日"
+
+
 def issue_page(meta, body_html, prev_d, next_d) -> str:
     d = meta["date"]
     dateline = f'{cn_date(d)} · {weekday(d)} · {TYPE_LABEL[meta["type"]]} · 约{meta["minutes"]}分钟'
@@ -165,6 +190,8 @@ def issue_page(meta, body_html, prev_d, next_d) -> str:
         + f'<p class="lede">{html.escape(meta["lede"])}</p>\n'
         + f'<article class="issue">{body_html}</article>\n'
         + "\n".join(nav)
+        + "\n"
+        + site_foot(skip={"/", "/archive.html"})
         + FOOT
     )
 
@@ -193,7 +220,141 @@ def archive_page(issues) -> str:
         + masthead(True)
         + '<p class="dateline">往期</p>\n'
         + "\n".join(rows)
-        + '\n<nav class="issue-nav"><span></span><a href="/">回到今天</a><span></span></nav>'
+        + "\n"
+        + site_foot(skip={"/archive.html"})
+        + FOOT
+    )
+
+
+def changelog_page(md_text: str) -> str:
+    body = re.sub(r"\A#\s+[^\n]*\n", "", md_text.lstrip())  # 标题由刊头和日期行代替
+    return (
+        HEAD.format(title="阅读小刊 · 更新日志", desc="阅读小刊的变化记录：栏目调整、系列开讲和讲完、网站改版")
+        + masthead(True)
+        + '<p class="dateline">更新日志</p>\n'
+        + f'<article class="changelog">{md_html(body)}</article>\n'
+        + site_foot(skip={"/changelog.html"})
+        + FOOT
+    )
+
+
+def parse_series(path: Path) -> dict:
+    """从 series/ 的大纲文件里读出名称、定位、讲目和进度表。"""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    title = lines[0].lstrip("#").strip()
+    name = title.split("·", 1)[1].strip() if "·" in title else title
+    blocks, current = {}, None
+    for line in lines[1:]:
+        if line.startswith("## "):
+            current = line[3:].strip()
+            blocks[current] = []
+        elif current is not None:
+            blocks[current].append(line)
+    items, unit = [], None
+    outline = next((v for k, v in blocks.items() if "大纲" in k), [])
+    for line in outline:
+        if line.startswith("### "):
+            unit = cn_quotes(line[4:].strip())
+            continue
+        m = re.match(r"(\d+)\.\s+(.+)", line.strip())
+        if m:
+            items.append({"n": int(m.group(1)), "title": cn_quotes(m.group(2).strip()), "unit": unit})
+    done, listening = {}, []
+    for line in blocks.get("进度", []):
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        date = next((c for c in cells if re.fullmatch(r"\d{4}-\d{2}-\d{2}", c)), None)
+        if not date:
+            continue
+        num = next((int(m.group(1)) for m in (re.fullmatch(r"第\s*(\d+)\s*讲", c) for c in cells) if m), None)
+        if num is not None:
+            done[num] = date
+        elif any("聆听" in c for c in cells):
+            piece = [c for c in cells if c and c != date and "聆听" not in c]
+            listening.append((date, cn_quotes(piece[0]) if piece else "周日聆听"))
+    # 网页只显示"简介"（写给所有读者）；"定位"是写给编辑的，不上网页
+    intro_lines = [l for l in blocks.get("简介", []) if not l.startswith("网站系列页显示这一段")]
+    intro = "\n".join(intro_lines).strip()
+    return {"name": name, "intro": intro, "items": items, "done": done, "listening": listening}
+
+
+def course_block(path: Path, when: str, issue_dates) -> str:
+    s = parse_series(path)
+    items, done = s["items"], s["done"]
+
+    def title_html(it):
+        d = done.get(it["n"])
+        t = html.escape(it["title"])
+        return f'<a href="/p/{d}.html">{t}</a>' if d in issue_dates else t
+
+    nxt = next((it for it in items if it["n"] not in done), None)
+    out = [
+        f'<div class="course" id="{html.escape(path.stem)}">',
+        f'<h2 class="course-name">{html.escape(s["name"])}</h2>',
+        f'<p class="course-meta">{when} · 共 {len(items)} 讲 · 已刊 {len(done)} 讲</p>',
+    ]
+    if s["intro"]:
+        out.append(f'<div class="course-intro">{md_html(s["intro"])}</div>')
+    published = [it for it in items if it["n"] in done]
+    if published:
+        out.append('<ol class="course-list">')
+        for it in published:
+            out.append(
+                f'<li class="done"><span class="n">第{it["n"]}讲</span><span class="t">{title_html(it)}</span>'
+                f'<span class="d">{short_date(done[it["n"]])}</span></li>'
+            )
+        out.append("</ol>")
+    if nxt:
+        out.append(f'<p class="course-next">下一讲：第{nxt["n"]}讲　{html.escape(nxt["title"])}</p>')
+    elif items:
+        out.append('<p class="course-next">已全部讲完</p>')
+    if s["listening"]:
+        out.append('<p class="course-unit">周日聆听</p><ol class="course-list">')
+        for d, piece in s["listening"]:
+            t = html.escape(piece)
+            t = f'<a href="/p/{d}.html">{t}</a>' if d in issue_dates else t
+            out.append(f'<li><span class="t">{t}</span><span class="d">{short_date(d)}</span></li>')
+        out.append("</ol>")
+    out.append(f'<details class="course-outline"><summary>全部 {len(items)} 讲</summary>')
+    opened, unit = False, None
+    for it in items:
+        if not opened or it["unit"] != unit:
+            if opened:
+                out.append("</ol>")
+            unit = it["unit"]
+            if unit:
+                out.append(f'<p class="course-unit">{html.escape(unit)}</p>')
+            out.append('<ol class="course-list">')
+            opened = True
+        cls = "done" if it["n"] in done else ("next" if nxt and it["n"] == nxt["n"] else "")
+        out.append(f'<li class="{cls}"><span class="n">{it["n"]}</span><span class="t">{title_html(it)}</span></li>')
+    if opened:
+        out.append("</ol>")
+    out.append("</details></div>")
+    return "\n".join(out)
+
+
+def series_page(issue_dates) -> str:
+    blocks = []
+    for fname, when in SERIES_ORDER:
+        path = SERIES_DIR / fname
+        if not path.exists():
+            continue
+        try:
+            blocks.append(course_block(path, when, issue_dates))
+        except Exception as e:
+            print(f"警告：{fname} 没能放进系列页：{e}", file=sys.stderr)
+    if not blocks:
+        raise ValueError("series/ 里没有能读的系列文件")
+    return (
+        HEAD.format(title="阅读小刊 · 系列", desc="阅读小刊的连载系列：全部讲目和已经刊出的讲")
+        + masthead(True)
+        + '<p class="dateline">系列</p>\n'
+        + '<p class="page-intro">阅读小刊自己写的连载课程，按星期轮换。已经刊出的讲可以直接点开读。</p>\n'
+        + "\n".join(blocks)
+        + "\n"
+        + site_foot(skip={"/series.html"})
         + FOOT
     )
 
@@ -218,7 +379,21 @@ def main():
     index = issue_page(latest_meta, render_body(latest_body), dates[-2] if len(dates) > 1 else None, None)
     (SITE / "index.html").write_text(index, encoding="utf-8")
     (SITE / "archive.html").write_text(archive_page(issues), encoding="utf-8")
-    print(f"已构建 {len(issues)} 期，最新：{latest_meta['date']}")
+    # 更新日志页和系列页出错只警告，不挡住当天出刊
+    extras = []
+    if CHANGELOG.exists():
+        try:
+            (SITE / "changelog.html").write_text(changelog_page(CHANGELOG.read_text(encoding="utf-8")), encoding="utf-8")
+            extras.append("更新日志")
+        except Exception as e:
+            print(f"警告：更新日志页没有生成：{e}", file=sys.stderr)
+    try:
+        (SITE / "series.html").write_text(series_page(set(dates)), encoding="utf-8")
+        extras.append("系列")
+    except Exception as e:
+        print(f"警告：系列页没有生成：{e}", file=sys.stderr)
+    extra = f"；另有{'、'.join(extras)}页" if extras else ""
+    print(f"已构建 {len(issues)} 期，最新：{latest_meta['date']}{extra}")
 
 
 if __name__ == "__main__":
