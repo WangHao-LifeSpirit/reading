@@ -215,6 +215,7 @@ th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0
 .series p, .series li { font-size: 17px; line-height: 1.9; }
 .series p { margin: 0 0 16px; }
 .series ol, .series ul { padding-left: 1.3em; margin: 0 0 16px; }
+.series td:first-child { white-space: nowrap; }
 
 /* 新闻里的"对币市 / 对 AI 方向 / 下一步看什么" */
 .news p > strong:first-child { color: var(--ink); font-weight: 600; }
