@@ -21,8 +21,20 @@ STATIC = ROOT / "static"
 SITE = ROOT / "site"
 
 WEEKDAYS = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
-TYPE_LABEL = {"思想": "新闻＋思想", "艺术": "新闻＋艺术", "仅新闻": "新闻"}
-SECTION_CLASS = {"新闻": "news", "短讯": "brief", "今日思想": "reading", "今日艺术": "reading", "本周后续": "news"}
+TYPE_LABEL = {
+    # 旧版（2026-09-28 及以前）
+    "思想": "新闻＋思想", "艺术": "新闻＋艺术", "仅新闻": "新闻",
+    # 新版：type 写当天的系列
+    "西方艺术史": "系列·西方艺术史", "交易与投资": "系列·交易与投资", "摄影": "系列·摄影",
+    "AI工具": "系列·AI工具与方法", "音乐史": "系列·音乐史", "周日": "周日·复盘与聆听",
+}
+SECTION_CLASS = {
+    "新闻": "news", "要闻与解析": "news", "本周复盘": "news", "本周后续": "news",
+    "短讯": "brief",
+    "币市一页": "market", "币市周报": "market",
+    "系列": "series", "周日聆听": "series",
+    "今日思想": "reading", "今日艺术": "reading", "深度长文": "reading",
+}
 
 
 def parse(path: Path):
@@ -39,14 +51,15 @@ def parse(path: Path):
         if not meta.get(key):
             raise ValueError(f"{path.name}: 头信息缺少 {key}")
     if meta["type"] not in TYPE_LABEL:
-        raise ValueError(f"{path.name}: type 只能是 思想 / 艺术 / 仅新闻")
+        raise ValueError(f"{path.name}: type 只能是 {' / '.join(TYPE_LABEL)}")
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", meta["date"]):
         raise ValueError(f"{path.name}: date 格式应为 YYYY-MM-DD")
     if path.stem != meta["date"]:
         raise ValueError(f"{path.name}: 文件名应与 date 一致")
     meta["lede"] = cn_quotes(meta["lede"])
-    if "reading" in meta:
-        meta["reading"] = cn_quotes(meta["reading"])
+    for key in ("reading", "series"):
+        if key in meta:
+            meta[key] = cn_quotes(meta[key])
     return meta, m.group(2)
 
 
@@ -82,6 +95,8 @@ def render_body(md_text: str) -> str:
     )
     body = re.sub(r"<p>(<img [^>]+>)</p>", r"<figure>\1</figure>", body)
     body = body.replace("<img ", '<img loading="lazy" ')
+    # 表格外包一层，窄屏可横向滚动
+    body = re.sub(r"(<table>.*?</table>)", r'<div class="table-wrap">\1</div>', body, flags=re.S)
     # 以 h2 切分成 section
     parts = re.split(r"(<h2>.*?</h2>)", body)
     out = [parts[0]] if parts[0].strip() else []
@@ -166,7 +181,7 @@ def archive_page(issues) -> str:
             y, m = ym.split("-")
             rows.append(f'<h2 class="month">{int(y)}年{int(m)}月</h2><ol class="archive">')
             month = ym
-        reading = meta.get("reading") or TYPE_LABEL[meta["type"]]
+        reading = "｜".join(x for x in (meta.get("series"), meta.get("reading")) if x) or TYPE_LABEL[meta["type"]]
         rows.append(
             f'<li><a href="/p/{d}.html"><span class="a-date">{int(d[5:7])}月{int(d[8:])}日 {weekday(d)[-1]}</span>'
             f'<span class="a-title">{html.escape(reading)}</span></a></li>'

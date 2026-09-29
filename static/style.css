@@ -187,3 +187,34 @@ hr { border: 0; border-top: 1px solid var(--rule); margin: 40px 0; }
 /* 来源链接更安静 */
 .news a, .brief a { color: var(--muted); text-decoration-color: var(--rule); }
 .news a:hover, .brief a:hover { color: var(--ink); }
+
+/* 表格（币市一页等） */
+table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 14.5px; line-height: 1.55; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.04em; }
+.table-wrap { overflow-x: auto; }
+
+/* 币市一页 */
+.market h3 { font-size: 16px; font-weight: 650; margin: 26px 0 6px; }
+.market p, .market li { color: var(--ink-2); }
+.market p { margin: 0 0 12px; }
+.market ul { padding-left: 1.2em; margin: 8px 0 14px; }
+.market a { color: var(--muted); text-decoration-color: var(--rule); }
+
+/* 系列 */
+.series { margin-top: 56px; }
+.series h2 { color: var(--ink); border-bottom-color: var(--ink); }
+.series h3 {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 26px 0 14px;
+}
+.series h4 { font-size: 16px; font-weight: 650; margin: 28px 0 8px; }
+.series p, .series li { font-size: 17px; line-height: 1.9; }
+.series p { margin: 0 0 16px; }
+.series ol, .series ul { padding-left: 1.3em; margin: 0 0 16px; }
+
+/* 新闻里的"对币市 / 对 AI 方向 / 下一步看什么" */
+.news p > strong:first-child { color: var(--ink); font-weight: 600; }
